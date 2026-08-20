@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Smarter Galaga</title>
+    <style>
+      @font-face {
+        font-family: "PixelFont";
+        src: url("/fonts/PressStart2P-Regular.ttf") format("truetype");
+        font-display: block;
+      }
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+      #bg-stars {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 0;
+      }
+      #game {
+        position: relative;
+        z-index: 1;
+        image-rendering: pixelated;
+        image-rendering: -moz-crisp-edges;
+        image-rendering: crisp-edges;
+        background: #000;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="bg-stars"></canvas>
+    <canvas id="game"></canvas>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
