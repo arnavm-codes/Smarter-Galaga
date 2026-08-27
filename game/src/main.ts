@@ -10,6 +10,8 @@ import { waitForSprites, sprites } from "./engine/assets";
 import { waitForFont, pixelFont } from "./engine/fonts";
 import { drawStarfield } from "./engine/starfield";
 import { ViewportStars } from "./engine/viewportStars";
+import { FeatureBuffer, moveToTargetX } from "./ml/features";
+import { predictMove } from "./ml/inference";
 
 const canvas = document.getElementById("game") as HTMLCanvasElement;
 const renderer = new Renderer(canvas);
@@ -26,6 +28,7 @@ let bullets: Bullet[] = [];
 let explosions: Explosion[] = [];
 let score = 0;
 let state: State = "start";
+const featureBuffer = new FeatureBuffer();
 let pauseMenuIndex = 0;
 let clock = 0; // seconds, free-running — drives starfield twinkle and UI blink, never resets
 let soundEnabled = true; // UI state only for now — no SFX are wired to gameplay events yet
@@ -43,6 +46,7 @@ function resetGame(): void {
   bullets = [];
   explosions = [];
   score = 0;
+  featureBuffer.reset();
 }
 
 function update(dt: number): void {
@@ -96,7 +100,12 @@ function update(dt: number): void {
   }
 
   player.update(dt, input, bullets);
-  formation.update(dt, bullets, player.x, player.vx);
+  featureBuffer.update(player.x, player.vx, dt);
+  const features = featureBuffer.features();
+  const predictedTargetX = features
+    ? moveToTargetX(player.x, predictMove(features).move)
+    : player.x;
+  formation.update(dt, bullets, player.x, predictedTargetX);
 
   for (const bullet of bullets) bullet.update(dt);
   bullets = bullets.filter((b) => b.alive);

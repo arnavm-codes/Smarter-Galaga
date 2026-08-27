@@ -23,11 +23,10 @@ const DIVE_MIN_INTERVAL = 1.4;
 const DIVE_MAX_INTERVAL = 3;
 const MAX_CONCURRENT_DIVERS = 2;
 
-// Fraction of dive triggers that use targeted selection instead of a uniform-random pick — a
-// placeholder heuristic for "which enemy jumps" until the ML prediction engine replaces it.
-const SMART_DIVE_CHANCE = 0.5;
-// How far ahead (seconds) targeted dives guess the player will be, from their current velocity.
-const PREDICTION_LOOKAHEAD = 0.45;
+// Fraction of dive/fire triggers that use the ML-predicted target instead of a uniform-random
+// pick. Kept well under 1 on purpose -- see "Deliberate imperfection" in the design doc: an
+// opponent that always aims perfectly reads as a wallhack, not a smart enemy.
+const PREDICTION_USE_CHANCE = 0.5;
 
 export type EnemyKind = "bee" | "butterfly";
 type EnemyState = "formation" | "diving";
@@ -117,7 +116,10 @@ export class EnemyFormation {
     }
   }
 
-  update(dt: number, bullets: Bullet[], playerX: number, playerVX: number): void {
+  // predictedTargetX: the ML predictor's best guess at the player's position ~400ms out (see
+  // game/src/ml/features.ts + inference.ts), or the player's current x as a fallback when no
+  // prediction is available yet (first few frames of a session, before the feature buffer fills).
+  update(dt: number, bullets: Bullet[], playerX: number, predictedTargetX: number): void {
     this.t += dt;
     const offsetX = Math.sin(this.t * SWAY_SPEED) * SWAY_AMPLITUDE;
     const offsetY = Math.sin(this.t * BOB_SPEED) * BOB_AMPLITUDE;
@@ -130,25 +132,25 @@ export class EnemyFormation {
     this.fireTimer -= dt;
     if (this.fireTimer <= 0) {
       this.fireTimer = BASE_ENEMY_FIRE_INTERVAL;
-      this.fireFromRandomEnemy(bullets);
+      this.fireFromRandomEnemy(bullets, predictedTargetX);
     }
 
     this.diveTimer -= dt;
     if (this.diveTimer <= 0) {
       this.diveTimer = randomDiveInterval();
-      this.startRandomDive(playerX, playerVX);
+      this.startRandomDive(playerX, predictedTargetX);
     }
   }
 
-  private startRandomDive(playerX: number, playerVX: number): void {
+  private startRandomDive(playerX: number, predictedTargetX: number): void {
     const divers = this.enemies.filter((e) => e.alive && e.state === "diving").length;
     if (divers >= MAX_CONCURRENT_DIVERS) return;
     const candidates = this.enemies.filter((e) => e.alive && e.state === "formation");
     if (candidates.length === 0) return;
 
-    // Mix targeted picks in with plain-random ones so it never looks fully deterministic.
-    const targeted = Math.random() < SMART_DIVE_CHANCE;
-    const targetX = targeted ? playerX + playerVX * PREDICTION_LOOKAHEAD : playerX;
+    // Mix ML-targeted picks in with plain-random ones so it never looks fully deterministic.
+    const targeted = Math.random() < PREDICTION_USE_CHANCE;
+    const targetX = targeted ? predictedTargetX : playerX;
     const chosen = targeted
       ? this.pickWeightedByProximity(candidates, targetX)
       : candidates[Math.floor(Math.random() * candidates.length)];
@@ -157,7 +159,7 @@ export class EnemyFormation {
   }
 
   // Weighted random pick favoring enemies closer to targetX — proximity, not certainty, so a
-  // farther enemy can still be picked. Placeholder for the ML predictor's eventual target choice.
+  // farther enemy can still be picked. Used for both dive selection and (below) shooter selection.
   private pickWeightedByProximity(candidates: Enemy[], targetX: number): Enemy {
     const weights = candidates.map((e) => 1 / (Math.abs(e.x - targetX) + 24));
     const total = weights.reduce((sum, w) => sum + w, 0);
@@ -169,10 +171,15 @@ export class EnemyFormation {
     return candidates[candidates.length - 1];
   }
 
-  private fireFromRandomEnemy(bullets: Bullet[]): void {
+  // Bullets only fall straight down (see Bullet.update), so "aiming" means picking a shooter
+  // near where the player is predicted to be, not curving the bullet's path.
+  private fireFromRandomEnemy(bullets: Bullet[], predictedTargetX: number): void {
     const alive = this.enemies.filter((e) => e.alive);
     if (alive.length === 0) return;
-    const shooter = alive[Math.floor(Math.random() * alive.length)];
+    const targeted = Math.random() < PREDICTION_USE_CHANCE;
+    const shooter = targeted
+      ? this.pickWeightedByProximity(alive, predictedTargetX)
+      : alive[Math.floor(Math.random() * alive.length)];
     bullets.push(
       new Bullet(shooter.x + shooter.width / 2 - 2, shooter.y + shooter.height, "enemy")
     );
