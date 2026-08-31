@@ -6,12 +6,25 @@ import { Bullet } from "./bullet";
 
 const WIDTH = 18;
 const HEIGHT = 16;
-const COLS = 8;
-const ROWS = 3;
+const MAX_COLS = 8; // widest row any formation shape uses -- keeps every shape centered on the same grid
 const H_SPACING = 24;
 const V_SPACING = 22;
 const TOP_MARGIN = 24;
 const SIDE_MARGIN = 16;
+
+// Each shape is a list of row widths (enemy count per row, centered on MAX_COLS). Picked at
+// random per formation instead of always laying out a plain rectangle -- see Galaga's classic
+// wedge/diamond entrance patterns.
+const FORMATION_SHAPES: readonly (readonly number[])[] = [
+  [8, 8, 8], // rectangle
+  [2, 4, 6, 8], // triangle, wide at the bottom
+  [8, 6, 4, 2], // inverted triangle, wide at the top
+  [2, 5, 8, 5, 2], // rhombus
+];
+
+function pickFormationShape(): readonly number[] {
+  return FORMATION_SHAPES[Math.floor(Math.random() * FORMATION_SHAPES.length)];
+}
 
 const SWAY_AMPLITUDE = 14; // px the whole formation drifts side to side
 const SWAY_SPEED = 0.8; // radians/sec
@@ -106,14 +119,17 @@ export class EnemyFormation {
   private diveTimer = randomDiveInterval();
 
   constructor() {
-    for (let row = 0; row < ROWS; row++) {
-      for (let col = 0; col < COLS; col++) {
-        const kind: EnemyKind = row === 0 ? "butterfly" : "bee";
+    const shape = pickFormationShape();
+    shape.forEach((rowWidth, row) => {
+      const colOffset = (MAX_COLS - rowWidth) / 2;
+      const kind: EnemyKind = row === 0 ? "butterfly" : "bee";
+      for (let i = 0; i < rowWidth; i++) {
+        const col = colOffset + i;
         this.enemies.push(
           new Enemy(SIDE_MARGIN + col * H_SPACING, TOP_MARGIN + row * V_SPACING, kind)
         );
       }
-    }
+    });
   }
 
   // predictedTargetX: the ML predictor's best guess at the player's position ~400ms out (see
