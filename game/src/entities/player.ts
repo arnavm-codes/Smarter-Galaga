@@ -9,6 +9,11 @@ const HEIGHT = 15;
 const SPEED = 90; // px/sec
 const FIRE_COOLDOWN = 0.35; // seconds between player shots
 
+// Exported for the ML feature buffer (game/src/ml/features.ts), which mirrors
+// ml/constants.py's PLAYER_WIDTH/PLAYER_SPEED -- keep those two in sync by hand.
+export const PLAYER_WIDTH = WIDTH;
+export const PLAYER_SPEED = SPEED;
+
 export class Player implements Rect {
   x = GAME_WIDTH / 2 - WIDTH / 2;
   y = GAME_HEIGHT - HEIGHT - 16;
