@@ -1,11 +1,39 @@
-# Smarter Galaga
+```
+ ________  _____ ______   ________  ________  _________  _______   ________     
+|\   ____\|\   _ \  _   \|\   __  \|\   __  \|\___   ___\\  ___ \ |\   __  \    
+\ \  \___|\ \  \\\__\ \  \ \  \|\  \ \  \|\  \|___ \  \_\ \   __/|\ \  \|\  \   
+ \ \_____  \ \  \\|__| \  \ \   __  \ \   _  _\   \ \  \ \ \  \_|/_\ \   _  _\  
+  \|____|\  \ \  \    \ \  \ \  \ \  \ \  \\  \|   \ \  \ \ \  \_|\ \ \  \\  \| 
+    ____\_\  \ \__\    \ \__\ \__\ \__\ \__\\ _\    \ \__\ \ \_______\ \__\\ _\ 
+   |\_________\|__|     \|__|\|__|\|__|\|__|\|__|    \|__|  \|_______|\|__|\|__|
+   \|_________|                                                                 
+                                                                                
+                                                                                
+ ________  ________  ___       ________  ________  ________                     
+|\   ____\|\   __  \|\  \     |\   __  \|\   ____\|\   __  \                    
+\ \  \___|\ \  \|\  \ \  \    \ \  \|\  \ \  \___|\ \  \|\  \                   
+ \ \  \  __\ \   __  \ \  \    \ \   __  \ \  \  __\ \   __  \                  
+  \ \  \|\  \ \  \ \  \ \  \____\ \  \ \  \ \  \|\  \ \  \ \  \                 
+   \ \_______\ \__\ \__\ \_______\ \__\ \__\ \_______\ \__\ \__\                
+    \|_______|\|__|\|__|\|_______|\|__|\|__|\|_______|\|__|\|__|                
+                                                                                
+                                                                                
+                                                                                
+```
 
 A retro Galaga clone with a twist: an ML prediction engine learns how you move and aims enemy fire accordingly, and difficulty scales dynamically based on how well you're playing. Personal learning project, not a shipping product.
 
+## Features
+
+- **ML-driven enemy aim:** a prediction model trained on player movement patterns is wired into the live game loop — enemies aim at where you're predicted to be ~400ms out, not just where you currently are.
+- **Randomized enemy formations:** formation shape is picked at random each wave/reset from a fixed set of layouts, instead of a single static grid.
+- **Persistent high score:** high score survives across sessions via `localStorage`, shown on the HUD.
+- Retro pixel-art rendering on a raw `<canvas>`, fixed 224×288 internal resolution scaled up with nearest-neighbor for crisp pixels.
+
 ## Stack
 
-- **Game (`game/`):** TypeScript + Vite, rendered on a raw `<canvas>` (no game engine framework) at a fixed 224×288 internal resolution, scaled up with nearest-neighbor for crisp pixel art.
-- **ML (`ml/`):** Python (`uv`-managed) + scikit-learn, training a logistic regression move classifier (left/right/stay, ~400ms lookahead) on synthetic bot data. Exported to `game/src/ml/model.json` and reimplemented as a plain dot product in `game/src/ml/inference.ts` for runtime inference — no Python server needed during play. Not wired into the live game loop yet (predictions aren't driving enemy fire).
+- **Game (`game/`):** TypeScript + Vite, rendered on a raw `<canvas>` (no game engine framework).
+- **ML (`ml/`):** Python (`uv`-managed) + scikit-learn, training a logistic regression move classifier (left/right/stay, ~400ms lookahead) on synthetic bot data. Exported to `game/src/ml/model.json` and reimplemented as a plain dot product in `game/src/ml/inference.ts` for runtime inference — no Python server needed during play. Wired into the live game loop: predictions drive enemy aim (see Features above).
 
 ## Prediction model
 
@@ -58,8 +86,8 @@ game/
 ├── src/
 │   ├── main.ts          # game loop
 │   ├── engine/           # renderer, input, collision, constants, asset loading
-│   ├── entities/         # player, enemy formation, bullets
-│   ├── difficulty/       # fire-rate tuning (flat for now; K/D-band scaling comes with ML integration)
+│   ├── entities/         # player, randomized enemy formations, bullets
+│   ├── difficulty/       # fire-rate tuning (flat baseline; K/D-band scaling is in progress)
 │   └── ml/                # inference.ts (TS port), model.json (exported coefficients), parityCheck.ts (parity-test CLI helper)
 ├── assets/               # sprites, audio (CC0, see license file above)
 └── index.html
