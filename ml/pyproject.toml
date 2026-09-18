@@ -1,0 +1,15 @@
+[project]
+name = "smarter-galaga-ml"
+version = "0.1.0"
+description = "Offline training/export side for the Smarter Galaga movement-prediction engine"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "scikit-learn>=1.5",
+    "matplotlib>=3.9",
+    "joblib>=1.5.3",
+]
+
+[tool.uv]
+package = false

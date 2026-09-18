@@ -10,6 +10,8 @@ import { waitForSprites, sprites } from "./engine/assets";
 import { waitForFont, pixelFont } from "./engine/fonts";
 import { drawStarfield } from "./engine/starfield";
 import { ViewportStars } from "./engine/viewportStars";
+import { FeatureBuffer, moveToTargetX } from "./ml/features";
+import { predictMove } from "./ml/inference";
 
 const canvas = document.getElementById("game") as HTMLCanvasElement;
 const renderer = new Renderer(canvas);
@@ -26,6 +28,10 @@ let bullets: Bullet[] = [];
 let explosions: Explosion[] = [];
 let score = 0;
 let state: State = "start";
+
+const HIGH_SCORE_KEY = "smarter-galaga-highscore";
+let highScore = Number(localStorage.getItem(HIGH_SCORE_KEY)) || 0;
+const featureBuffer = new FeatureBuffer();
 let pauseMenuIndex = 0;
 let clock = 0; // seconds, free-running — drives starfield twinkle and UI blink, never resets
 let soundEnabled = true; // UI state only for now — no SFX are wired to gameplay events yet
@@ -43,6 +49,7 @@ function resetGame(): void {
   bullets = [];
   explosions = [];
   score = 0;
+  featureBuffer.reset();
 }
 
 function update(dt: number): void {
@@ -96,7 +103,12 @@ function update(dt: number): void {
   }
 
   player.update(dt, input, bullets);
-  formation.update(dt, bullets, player.x, player.vx);
+  featureBuffer.update(player.x, player.vx, dt);
+  const features = featureBuffer.features();
+  const predictedTargetX = features
+    ? moveToTargetX(player.x, predictMove(features).move)
+    : player.x;
+  formation.update(dt, bullets, player.x, predictedTargetX);
 
   for (const bullet of bullets) bullet.update(dt);
   bullets = bullets.filter((b) => b.alive);
@@ -122,7 +134,13 @@ function update(dt: number): void {
       bullet.alive = false;
       player.lives -= 1;
       explosions.push(new Explosion(player.x + player.width / 2, player.y + player.height / 2));
-      if (player.lives <= 0) state = "gameover";
+      if (player.lives <= 0) {
+        state = "gameover";
+        if (score > highScore) {
+          highScore = score;
+          localStorage.setItem(HIGH_SCORE_KEY, String(highScore));
+        }
+      }
     }
   }
   bullets = bullets.filter((b) => b.alive);
@@ -180,8 +198,11 @@ function drawStartScreen(ctx: CanvasRenderingContext2D): void {
   ctx.fillText("GALAGA", GAME_WIDTH / 2, 64);
   ctx.shadowBlur = 0;
 
-  ctx.fillStyle = PALETTE.hud;
+  ctx.fillStyle = PALETTE.hudAccent;
   ctx.font = pixelFont(6);
+  ctx.fillText(`HIGH SCORE ${highScore}`, GAME_WIDTH / 2, 84);
+
+  ctx.fillStyle = PALETTE.hud;
   ctx.globalAlpha = 0.5 + 0.5 * Math.sin(clock * 3);
   ctx.fillText("PRESS ENTER", GAME_WIDTH / 2, 104);
   ctx.fillText("TO START", GAME_WIDTH / 2, 116);
